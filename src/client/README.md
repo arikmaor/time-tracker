@@ -22,6 +22,7 @@ src/client
 │   ├── AdvancedReport.js
 │   ├── ClientsReport.js
 │   └── UsersReport.js
+│   └── ActivityReport.js
 ├── Settings
 │   ├── Activities.js
 │   ├── Client.js

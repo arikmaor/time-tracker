@@ -1,8 +1,8 @@
 import React from 'react'
-import {sortBy} from 'lodash'
+import _, {sortBy, sumBy, uniq, uniqBy, map} from 'lodash'
 import moment from 'moment'
 import memoizeOne from 'memoize-one';
-import { Grid, withStyles, Button, Paper, Table, TableHead, TableRow, TableCell, TableBody, TableSortLabel } from '@material-ui/core';
+import { Grid, withStyles, Button, Paper, Table, TableHead, TableRow, TableCell, TableBody, TableFooter, TableSortLabel } from '@material-ui/core';
 import TextField from 'common/TextField'
 import MultipleSelection from 'common/MultipleSelection'
 import ActivityIndicator from 'common/ActivityIndicator'
@@ -35,6 +35,19 @@ const getSortedData = memoizeOne((reports = [], orderBy, orderDirection) => {
   return sortedData
 })
 
+const sumOfUniqueDates = (data) => {
+  return _(data)
+      .groupBy('userId') // Group by userId
+      .mapValues(entries => 
+          _(entries)
+              .map('date') // Extract the date field
+              .uniq() // Get unique dates
+              .size() // Count the unique dates
+      )
+      .values() // Get the counts as an array
+      .sum(); // Sum the counts
+}
+
 const HeaderCell = withStyles(styles)(({classes, field, selectedField, selectedDirection, onClick, children}) => (
   <TableCell className={classes.cell}>
     <TableSortLabel
@@ -47,13 +60,32 @@ const HeaderCell = withStyles(styles)(({classes, field, selectedField, selectedD
   </TableCell>
 ))
 
+const searchPeriodTypes = [
+  {
+    label: 'חיפוש ידני',
+    value: 0,
+  },
+  {
+    label: '3 חודשים אחרונים',
+    value: 3,
+  },
+  {
+    label: '6 חודשים אחרונים',
+    value: 6,
+  },
+  {
+    label: '12 חודשים אחרונים',
+    value: 12,
+  }
+]
 
 class AdvancedReport extends React.Component {
 
   state = {
-    startDate: '',
-    endDate: '',
+    startDate: moment().format('YYYY-MM-DD'),
+    endDate: moment().add(1, 'day').format('YYYY-MM-DD'),
     loading: true,
+    searchPeriodType: searchPeriodTypes[0],
     clients: [],
     clientsFilter: [],
     activities: [],
@@ -121,7 +153,13 @@ class AdvancedReport extends React.Component {
     if (!basename) {
       basename = 'report-'
     }
-    generateAdvancedReportCSV(reports, `${basename}${timestamp}.csv`)
+    const reportToDownload = {
+      reports,
+      totalHours: sumBy(reports, 'duration'),
+      numberOfWorkdays: sumOfUniqueDates(reports)
+    }
+
+    generateAdvancedReportCSV(reportToDownload, `${basename}${timestamp}.csv`)
   }
 
   applySort(key) {
@@ -139,62 +177,104 @@ class AdvancedReport extends React.Component {
     })
   }
 
+  updateSearchPeriodType = (periodObject) => {
+    const {value} = periodObject
+
+    this.setState({
+      searchPeriodType: periodObject,
+      startDate: moment().add(-value, 'months').format('YYYY-MM-DD'),
+      endDate: moment().add(1, 'day').format('YYYY-MM-DD')
+    })
+  }
+
   render() {
     const {classes} = this.props
-    const {loading, reports, startDate, endDate, clients, clientsFilter, activities, activitiesFilter, users, usersFilter, orderBy, orderDirection} = this.state
+    const {
+      loading,
+      searchPeriodType,
+      reports,
+      startDate,
+      endDate,
+      clients,
+      clientsFilter,
+      activities,
+      activitiesFilter,
+      users,
+      usersFilter,
+      orderBy,
+      orderDirection
+    } = this.state
+    const sumTotalHours = sumBy(reports, 'duration')
+    const distinctWorkingDays = sumOfUniqueDates(reports)
+
     return (
-      <Grid container direction='column'>
-        <Grid container spacing={0} justify='space-evenly'>
-          <Grid item xs={1}>
-            <TextField
-              fullWidth={true}
-              label='התחלה'
-              type='date'
-              value={startDate}
-              onChange={e => this.updateFilter('startDate', e.target.value)}
-            />
+      <Grid container direction='column' spacing={16}>
+        <Grid container justify='space-between' spacing={16}>
+          <Grid container item xs={9} justify='flex-start' alignItems='center'>
+            <Grid item xs={3}>
+              <MultipleSelection
+                label='טווח תאריכים'
+                single={true}
+                disabled={loading}
+                value={searchPeriodType}
+                onChange={this.updateSearchPeriodType}
+                data={searchPeriodTypes}
+                displayField='label'
+              />
+            </Grid>
+            <Grid item xs={3}>
+              <TextField
+                fullWidth={true}
+                disabled={loading || searchPeriodType.value !== 0}
+                label='התחלה'
+                type='date'
+                value={startDate}
+                onChange={e => this.updateFilter('startDate', e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={3}>
+              <TextField
+                fullWidth={true}
+                disabled={loading || searchPeriodType.value !== 0}
+                label='סיום'
+                type='date'
+                value={endDate}
+                onChange={e => this.updateFilter('endDate', e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={4}>
+              <MultipleSelection
+                label='לקוחות'
+                disabled={loading}
+                value={clientsFilter}
+                onChange={value => this.updateFilter('clientsFilter', value)}
+                data={clients}
+                displayField='name'
+              />
+            </Grid>
+            <Grid item xs={4}>
+              <MultipleSelection
+                label='פעילויות'
+                disabled={loading}
+                value={activitiesFilter}
+                onChange={value => this.updateFilter('activitiesFilter', value)}
+                data={activities}
+                displayField='name'
+              />
+            </Grid>
+            <Grid item xs={4}>
+              <MultipleSelection
+                label='עובדים'
+                disabled={loading}
+                value={usersFilter}
+                onChange={value => this.updateFilter('usersFilter', value)}
+                data={users}
+                displayField='displayName'
+              />
+            </Grid>
           </Grid>
-          <Grid item xs={1}>
-            <TextField
-              fullWidth={true}
-              label='סיום'
-              type='date'
-              value={endDate}
-              onChange={e => this.updateFilter('endDate', e.target.value)}
-            />
-          </Grid>
-          <Grid item xs={3}>
-            <MultipleSelection
-              label='לקוחות'
-              disabled={loading}
-              value={clientsFilter}
-              onChange={value => this.updateFilter('clientsFilter', value)}
-              data={clients}
-              displayField='name'
-            />
-          </Grid>
-          <Grid item xs={3}>
-            <MultipleSelection
-              label='פעילויות'
-              disabled={loading}
-              value={activitiesFilter}
-              onChange={value => this.updateFilter('activitiesFilter', value)}
-              data={activities}
-              displayField='name'
-            />
-          </Grid>
-          <Grid item xs={2}>
-            <MultipleSelection
-              label='עובדים'
-              disabled={loading}
-              value={usersFilter}
-              onChange={value => this.updateFilter('usersFilter', value)}
-              data={users}
-              displayField='displayName'
-            />
-          </Grid>
-          <Grid container justify='space-between' xs={1}>
-            <Grid item>
+          <Grid container item justify='flex-end' xs={2} spacing={8} alignItems='center'>
+            <Grid item xs={5}>
               <Button
                 color='primary'
                 variant='contained'
@@ -204,7 +284,7 @@ class AdvancedReport extends React.Component {
                 הצג
               </Button>
             </Grid>
-            <Grid item>
+            <Grid item xs={5}>
               <Button
                 color='primary'
                 variant='contained'
@@ -253,6 +333,28 @@ class AdvancedReport extends React.Component {
                     )
                   })}
                 </TableBody>
+                <TableFooter>
+                      <TableRow>
+                        <TableCell colSpan={3} />
+                        <TableCell className={classes.cell}>
+                          שעות עבודה
+                        </TableCell>
+                        <TableCell className={classes.cell}>
+                          {sumTotalHours}
+                        </TableCell>
+                        <TableCell />
+                      </TableRow>
+                      <TableRow>
+                        <TableCell colSpan={3} />
+                        <TableCell className={classes.cell}>
+                          ימי עבודה
+                        </TableCell>
+                        <TableCell className={classes.cell}>
+                          {distinctWorkingDays}
+                        </TableCell>
+                        <TableCell />
+                      </TableRow>
+                    </TableFooter>
               </Table>
             </Paper>
           )}

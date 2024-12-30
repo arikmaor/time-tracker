@@ -12,6 +12,7 @@ import Select from '@material-ui/core/Select';
 import MenuItem from '@material-ui/core/MenuItem';
 
 import ActivityIndicator from 'common/ActivityIndicator'
+import MultipleSelection from '../common/MultipleSelection'
 
 import {getSignedInUser} from 'core/authService'
 import * as timetrackingService from 'core/timetrackingService'
@@ -74,7 +75,8 @@ class TimeTracking extends React.Component {
     activities: [],
     selectedMonth: null,
     reports: [],
-    duplications: {}
+    duplications: {},
+    usersFilter: [],
   }
 
   constructor(props) {
@@ -113,13 +115,12 @@ class TimeTracking extends React.Component {
   }
 
   selectUser(e) {
-    const userId = get(e, 'target.value', e)
+    const userId = e[0]._id
     this.initUser(this.state.users.find(({_id}) => _id === userId), true)
   }
 
-  selectMonth(e) {
-    const idx = get(e, 'target.value', e)
-    this.initMonth(this.state.months[idx], this.state.selectedUser)
+  selectMonth(monthObject) {
+    this.initMonth(monthObject, this.state.selectedUser)
   }
 
   async initMonth(selectedMonth, selectedUser) {
@@ -253,9 +254,13 @@ class TimeTracking extends React.Component {
     generateTimeTrackingCSV(reports, `report-${year}-${month}.csv`)
   }
 
+  updateFilter(val) {
+    this.initUser(this.state.users.find(({_id}) => _id === val._id), true)
+  }
+
   render() {
     const {classes} = this.props
-    const {loading, loadingMonth, months, selectedMonth, clients, activities, users, selectedUser, reports, isAdmin} = this.state
+    const {loading, loadingMonth, months, usersFilter, selectedMonth, clients, activities, users, selectedUser, reports, isAdmin} = this.state
 
     if (loading) {
       return <ActivityIndicator />
@@ -264,39 +269,47 @@ class TimeTracking extends React.Component {
     return (
       <Grid container>
         <Grid container justify='space-between'>
-          <Grid item>
-            {isAdmin && <Select
-              className={classes.input}
-              value={selectedUser && selectedUser._id}
-              onChange={this.selectUser}
-            >
-              {users.map(({_id, displayName}) => (
-                <MenuItem key={_id} value={_id}>{displayName}</MenuItem>
-              ))}
-            </Select>}
-            <Select
-              className={classes.input}
-              value={months.indexOf(selectedMonth)}
-              onChange={this.selectMonth}
-            >
-              {months.map((month, idx) => (
-                <MenuItem key={idx} value={idx}>{month.display}</MenuItem>
-              ))}
-            </Select>
+          <Grid container item md={10}>
+            <Grid item xs={2}>
+              {isAdmin && <MultipleSelection
+                label='עובדים'
+                className={classes.input}
+                disabled={loading}
+                value={selectedUser}
+                onChange={this.updateFilter}
+                data={users}
+                single
+                displayField='displayName'
+              />}
+            </Grid>
+            <Grid item xs={2}>
+              <MultipleSelection
+                  label='חודש'
+                  className={classes.input}
+                  disabled={loading}
+                  value={selectedMonth}
+                  onChange={this.selectMonth}
+                  data={months}
+                  single
+                  displayField='display'
+              />
+            </Grid>
           </Grid>
-          <Grid item>
-            {selectedMonth && (
-              <Button className={classes.csvButton} onClick={this.downloadCSV} variant="contained" color="primary">
-                <DownloadIcon className={classes.iconInButton}/>
-                CSV
-              </Button>
-            )}
-            {selectedMonth && !selectedMonth.locked && (
-              <Button onClick={this.addNewReport} variant="contained" color="primary">
-                <AddIcon className={classes.iconInButton}/>
-                דיווח חדש
-              </Button>
-            )}
+          <Grid item md={2} container justify='flex-end'>
+            <Grid item>
+              {selectedMonth && (
+                <Button className={classes.csvButton} onClick={this.downloadCSV} variant="contained" color="primary">
+                  <DownloadIcon className={classes.iconInButton}/>
+                  CSV
+                </Button>
+              )}
+              {selectedMonth && !selectedMonth.locked && (
+                <Button onClick={this.addNewReport} variant="contained" color="primary">
+                  <AddIcon className={classes.iconInButton}/>
+                  דיווח חדש
+                </Button>
+              )}
+            </Grid>
           </Grid>
         </Grid>
         <Grid item className={classes.fullWidth}>

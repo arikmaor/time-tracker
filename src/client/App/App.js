@@ -10,6 +10,7 @@ import AppShell from './AppShell'
 import {StylesProvider} from './styles'
 import TimeTracking from 'TimeTracking/TimeTracking'
 import ClientsReport from 'Reports/ClientsReport'
+import ActivitiesReport from 'Reports/ActivitiesReport'
 import UsersReport from 'Reports/UsersReport'
 import AdvancedReport from 'Reports/AdvancedReport'
 import Users from 'Settings/Users'
@@ -43,13 +44,14 @@ class App extends React.Component {
               <PrivateRoute path="/timetracking" component={TimeTracking} />
               <PrivateRoute adminOnly path="/clientsreport" component={ClientsReport} />
               <PrivateRoute adminOnly path="/usersreport" component={UsersReport} />
+              <PrivateRoute adminOnly path="/activitiesreport" component={ActivitiesReport} />
               <PrivateRoute adminOnly path="/advancedreport" component={AdvancedReport} />
               <PrivateRoute adminOnly path="/users/:userId" component={Users} />
               <PrivateRoute adminOnly path="/users" component={Users} />
               <PrivateRoute adminOnly path="/clients/:clientId" component={Clients} />
               <PrivateRoute adminOnly path="/clients" component={Clients} />
               <PrivateRoute adminOnly path="/activities" component={Activities} />
-              <Redirect to={getRedirectUrl()}/>} />
+              <Redirect to={getRedirectUrl()} />
             </Switch>
           </AppShell>
         </Router>

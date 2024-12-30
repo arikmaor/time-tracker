@@ -107,6 +107,7 @@ class ClientsReport extends React.Component {
     const {reportsByClient, startDate, clientsFilter} = this.state
     const basename = clientsFilter.length !== 1 ? 'clients' : clientsFilter[0].name.replace(/ /g, '-')
     const timestamp = moment(startDate.date).format('YYYY-MM')
+
     generateClientsReportCSV(reportsByClient, `${basename}-${timestamp}.csv`)
   }
 
@@ -176,7 +177,7 @@ class ClientsReport extends React.Component {
         </Grid>
         <Grid item>
           {loading ? <ActivityIndicator /> : map(reportsByClient,
-            ({reports, totalHours, totalPrice}, clientId) => (
+            ({reports, totalHours, numberOfWorkdays}, clientId) => (
               <React.Fragment key={clientId}>
                 <Typography variant='title' gutterBottom className={classes.title}>
                   {reports[0].clientName}
@@ -216,11 +217,22 @@ class ClientsReport extends React.Component {
                     </TableBody>
                     <TableFooter>
                       <TableRow>
-                        <TableCell className={classes.cell} colSpan={4}>
-                          סה״כ לתשלום: {totalPrice}₪
+                        <TableCell colSpan={3} />
+                        <TableCell className={classes.cell}>
+                          שעות עבודה
                         </TableCell>
                         <TableCell className={classes.cell}>
                           {totalHours}
+                        </TableCell>
+                        <TableCell />
+                      </TableRow>
+                      <TableRow>
+                        <TableCell colSpan={3} />
+                        <TableCell className={classes.cell}>
+                          ימי עבודה
+                        </TableCell>
+                        <TableCell className={classes.cell}>
+                          {numberOfWorkdays}
                         </TableCell>
                         <TableCell />
                       </TableRow>

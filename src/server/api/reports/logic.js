@@ -50,22 +50,32 @@ async function getReports(startDate, endDate, group, filter) {
 
   if (group === 'client') {
     const reportsByClient = groupBy(reports, r => r.clientId)
-    return mapValues(reportsByClient, (reports, clientId) => {
-      const client = clients.find(({id}) => id === clientId)
+    return mapValues(reportsByClient, (reports) => {
+      const reportsByWorkdays = map(groupBy(reports, r => r.date))
+      
       return {
         reports,
         totalHours: sumBy(reports, r => r.duration),
-        totalPrice: calculateReportsTotalPrice(reports, client)
+        numberOfWorkdays: reportsByWorkdays.length,
       }
     })
   } else if (group === 'user') {
     const reportsByUser = groupBy(reports, r => r.userId)
-    return mapValues(reportsByUser, (reports, userId) => {
-      const user = users.find(({id}) => id === userId)
+    return mapValues(reportsByUser, (reports) => {
+      const reportsByWorkdays = map(groupBy(reports, r => r.date))
       return {
         reports,
         totalHours: sumBy(reports, r => r.duration),
-        ...calculateUserSalary(reports, user)
+        numberOfWorkdays: reportsByWorkdays.length
+      }
+    })
+  } else if (group === 'activity') {
+    const reportsByActivity = groupBy(reports, r => r.activityId)
+    return mapValues(reportsByActivity, (reports, activityId) => {
+      const activity = activities.find(({id}) => id === activityId)
+      return {
+        reports,
+        ...calculateActivitySum(reports)
       }
     })
   } else {
@@ -84,37 +94,16 @@ function populate(reports, users, clients, activities) {
   })
 }
 
-function calculateReportsTotalPrice(reports, client) {
-  return round(reports.reduce((ret, {activityId, duration}) => {
-    const clientActivity = get(client, 'activities', []).find(a => a.activityId === activityId)
-    const hourlyQuote = get(clientActivity, 'hourlyQuote')
-    const price = hourlyQuote || 0
-    return ret + price*duration
-  }, 0), 2)
-}
-
-function calculateUserSalary(reports, user) {
-  const salary = round(reports.reduce((ret, {activityId, clientId, duration}) => {
-    const activity = user.activities.find(a => a.activityId === activityId && a.clientId === clientId)
-    const quote = (activity && activity.hourlyQuote) || user.defaultHourlyQuote || 0
-    return ret + quote*duration
-  }, 0), 2)
-
-  const reportsByWorkdays = map(groupBy(reports, r => r.date))
-  const travelSalary = round(reportsByWorkdays.reduce((ret, dayReports) => {
-    return ret + Math.max(...dayReports.map(({activityId, clientId}) => {
-      const activity = user.activities.find(a => a.activityId === activityId && a.clientId === clientId)
-      return (activity && activity.travelQuote) || user.defaultTravelQuote || 0
-    }))
-  }, 0), 2)
+function calculateActivitySum(reports) {
+  const uniqueWorkingDays = map(groupBy(reports, r => r.date));
+  const totalHours = sumBy(reports, r => r.duration);
 
   return {
-    numberOfWorkdays: reportsByWorkdays.length,
-    salary,
-    travelSalary,
-    totalSalary: salary + travelSalary
-  }
+    totalHours,
+    numberOfWorkdays: uniqueWorkingDays.length,
+  };
 }
+
 
 module.exports = {
   getReports,

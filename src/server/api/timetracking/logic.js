@@ -111,14 +111,14 @@ module.exports = {
     if (!user.isAdmin) {
       deleteReq.userId = user._id
     }
-    const {ok, n} = await Model.deleteOne(deleteReq)
-    if (ok && n > 0) {
+    const {acknowledged, deletedCount} = await Model.deleteOne(deleteReq)
+    console.log('deleteReq', deleteReq, 'ok', acknowledged, 'n', deletedCount)
+    if (acknowledged && deletedCount > 0) {
       return {success: true}
     } else {
       throw new UserError('Report not found')
     }
   }
-
 }
 
 function validateReportDate(user, reportDate) {

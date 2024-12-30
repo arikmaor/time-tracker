@@ -1,12 +1,12 @@
-const path = require('path');
-const rimraf = require('rimraf')
-const webpack = require('webpack')
-const merge = require('webpack-merge')
-const HtmlWebpackPlugin = require('html-webpack-plugin')
+const webpack = require('webpack');
+const merge = require('webpack-merge');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
-const CleanWebpackPlugin = require('clean-webpack-plugin')
+const CleanWebpackPlugin = require('clean-webpack-plugin');
+const path = require('path');
+const rimraf = require('rimraf');
 
-const NODE_ENV = process.env.NODE_ENV || 'development'
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
 const paths = {
   src: path.join(__dirname, 'src/client'),
@@ -14,13 +14,13 @@ const paths = {
   temp: path.join(__dirname, '_build'),
   dist: path.join(__dirname, 'dist'),
   node_modules: path.join(__dirname, 'node_modules')
-}
+};
 
 class PostBuildPlugin {
   apply(compiler) {
     compiler.hooks.done.tap('PostBuildPlugin', () => {
-      rimraf(paths.temp, () => console.log(`Removed ${paths.temp}`))
-    })
+      rimraf(paths.temp, () => console.log(`Removed ${paths.temp}`));
+    });
   }
 }
 
@@ -47,6 +47,10 @@ const common = {
           },
         ],
         exclude: paths.node_modules
+      },
+      {
+        test: /\.css$/,
+        use: ['style-loader', 'css-loader'],
       }
     ]
   },
@@ -55,7 +59,7 @@ const common = {
       template: paths.html
     })
   ]
-}
+};
 
 const development = {
   mode: 'development',
@@ -73,34 +77,14 @@ const development = {
         target: "http://0.0.0.0:3000"
       }
     }
-
   },
   performance: {
     hints: false,
   },
-  module: {
-    rules: [
-      {
-        test: /\.js$/,
-        use: [
-          {
-            loader: 'babel-loader',
-            options: {
-              cacheDirectory: true,
-            },
-          },
-        ],
-        exclude: paths.node_modules
-      }, {
-        test: /\.css$/,
-        use: ['style-loader', 'css-loader'],
-      }
-    ]
-  },
   plugins: [
     new webpack.HotModuleReplacementPlugin()
   ]
-}
+};
 
 const production = {
   mode: 'production',
@@ -110,7 +94,8 @@ const production = {
         test: /\.js$/,
         use: 'babel-loader',
         exclude: paths.node_modules
-      }, {
+      },
+      {
         test: /\.css$/,
         use: [
           MiniCssExtractPlugin.loader,
@@ -124,8 +109,8 @@ const production = {
     new CleanWebpackPlugin([paths.dist, paths.temp]),
     new PostBuildPlugin()
   ]
-}
+};
 
 module.exports = NODE_ENV === 'development' ?
   merge(common, development) :
-  merge(common, production)
+  merge(common, production);

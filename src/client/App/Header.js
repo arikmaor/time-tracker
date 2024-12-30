@@ -107,6 +107,7 @@ class AppHeader extends React.Component {
             </Typography>
             {isAdmin && <NavButton to='/clientsreport'>דוח לקוחות</NavButton>}
             {isAdmin && <NavButton to='/usersreport'>דוח עובדים</NavButton>}
+            {isAdmin && <NavButton to='/activitiesreport'>דוח פעילות</NavButton>}
             {isAdmin && <NavButton to='/advancedreport'>דוח מפורט</NavButton>}
             <NavButton to='/timetracking'>דיווח שעות</NavButton>
             <IconButton

@@ -10,6 +10,7 @@ import TableCell from '@material-ui/core/TableCell';
 import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
 import TableSortLabel from '@material-ui/core/TableSortLabel';
+import TableFooter from '@material-ui/core/TableFooter';
 
 import TextField from '@material-ui/core/TextField';
 
@@ -42,6 +43,12 @@ const styles = theme => ({
     width: '50%'
   },
   smallCell: {
+    fontSize: '1.25rem',
+    textAlign: 'right',
+    padding: theme.spacing.unit * 1.5,
+    whiteSpace: 'nowrap'
+  },
+  footerCell: {
     fontSize: '1.25rem',
     textAlign: 'right',
     padding: theme.spacing.unit * 1.5,
@@ -82,13 +89,23 @@ class EditableTable extends React.Component {
     onDelete: PropTypes.func.isRequired,
     onSave: PropTypes.func.isRequired,
     onDuplicate: PropTypes.func,
-
+    footerData: PropTypes.arrayOf(
+      PropTypes.shape({
+        cells: PropTypes.arrayOf(
+          PropTypes.shape({
+            content: PropTypes.node,
+            colSpan: PropTypes.number,
+          })
+        ),
+      })
+    ),
   }
 
   static defaultProps = {
     idField: '_id',
     isNew: () => false,
-    preventEdit: () => false
+    preventEdit: () => false,
+    footerData: null
   }
 
   state = {
@@ -112,7 +129,7 @@ class EditableTable extends React.Component {
   }
 
   render() {
-    const {classes, headers, data, idField, isNew, preventEdit, ...otherProps} = this.props
+    const {classes, headers, data, idField, isNew, preventEdit, footerData, ...otherProps} = this.props
     const {orderBy, orderDirection} = this.state
     return (
       <Table>
@@ -146,6 +163,19 @@ class EditableTable extends React.Component {
             />
           ))}
         </TableBody>
+        {footerData && (
+          <TableFooter>
+            {footerData.map((row, rowIndex) => (
+              <TableRow key={rowIndex}>
+                {row.cells.map(({wide, content, colSpan}, cellIndex) => (
+                  <TableCell key={cellIndex} colSpan={colSpan || 1} className={wide ? classes.bigCell : classes.smallCell}>
+                    {content}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableFooter>
+        )}
       </Table>
     )
   }

@@ -22,7 +22,11 @@ const DAY_PICKER_PROPS = {
   canChangeMonth: false,
 }
 
-const DayPicker = ({classes, error, ...rest}) => (
+const ForwardRefTextField = React.forwardRef((props, ref) => (
+  <TextField {...props} inputRef={ref} />
+));
+
+const DayPicker = React.forwardRef(({classes, error, ...rest}) => (
   <DayPickerInput
     dayPickerProps={DAY_PICKER_PROPS}
     inputProps={{
@@ -31,10 +35,10 @@ const DayPicker = ({classes, error, ...rest}) => (
         readOnly: true
       }
     }}
-    component={TextField}
+    component={ForwardRefTextField}
     classNames={classes}
     {...rest}
   />
-)
+))
 
 export default withStyles(styles)(DayPicker)

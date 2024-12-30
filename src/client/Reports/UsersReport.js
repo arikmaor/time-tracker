@@ -1,10 +1,14 @@
 import React from 'react'
-import {map, sortBy} from 'lodash'
+import {map, sortBy, get} from 'lodash'
 import moment from 'moment'
 import memoizeOne from 'memoize-one';
-import {Grid, withStyles, Button, Paper, Table, TableHead, TableRow, TableCell, TableBody, Typography, TableFooter, TableSortLabel} from '@material-ui/core';
+import {Grid, withStyles, Button, Paper, Typography} from '@material-ui/core';
+import * as timetrackingService from 'core/timetrackingService'
+import {getAllActivities} from 'core/activitiesService'
+import {getAllClients} from 'core/clientsService'
 import MultipleSelection from 'common/MultipleSelection'
 import ActivityIndicator from 'common/ActivityIndicator'
+import EditableTable from '../common/EditableTable'
 
 import {getAllUsers} from 'core/usersService'
 import {getReports, getFirstActivityDate} from 'core/reportsService'
@@ -36,17 +40,13 @@ const getSortedData = memoizeOne((reports = [], orderBy, orderDirection) => {
   return sortedData
 })
 
-const HeaderCell = withStyles(styles)(({classes, field, selectedField, selectedDirection, onClick, children}) => (
-  <TableCell className={classes.cell}>
-    <TableSortLabel
-      active={selectedField === field}
-      direction={selectedDirection}
-      onClick={() => onClick && onClick(field)}
-    >
-      {children}
-    </TableSortLabel>
-  </TableCell>
-))
+const NEW_PREFIX = 'new_'
+let dummyIdCounter = 0
+
+const EMPLOYMENT_TYPES = [
+  {title: 'שכיר', _id: 'employee'},
+  {title: 'עצמאי', _id: 'contractor'},
+]
 
 class UsersReport extends React.Component {
 
@@ -55,6 +55,7 @@ class UsersReport extends React.Component {
     startDate: '',
     users: [],
     usersFilter: [],
+    employmentTypeFilter: [],
     months: [],
     reportsByUser: {},
     orderBy: '',
@@ -67,29 +68,55 @@ class UsersReport extends React.Component {
   }
 
   async init() {
-    const [users, firstDate] = await Promise.all([
+    const [users, firstDate, clients, allActivities] = await Promise.all([
       getAllUsers(),
-      getFirstActivityDate()
+      getFirstActivityDate(),
+      getAllClients(),
+      getAllActivities()
     ])
 
     const months = makeMonthsList(firstDate)
 
     this.setState({
+      employmentTypeFilter: EMPLOYMENT_TYPES,
       users,
       months,
       startDate: months[months.length-1],
-      loading: false
+      loading: false,
+      clients,
+      activities: clients.reduce((ret, client) => {
+        ret[client._id] = allActivities
+          .filter(activity => client.activities.some(({activityId}) => activityId === activity._id))
+        return ret
+      }, {}),
     })
 
     this.load()
   }
 
   async load() {
-    const {startDate, usersFilter} = this.state
+    if (!this.state.startDate) return
+
+    const {
+      startDate,
+      usersFilter,
+      employmentTypeFilter,
+      users
+    } = this.state
+
+    let updatedUserFilter = usersFilter
+    if (employmentTypeFilter.length && employmentTypeFilter.length < EMPLOYMENT_TYPES.length) {
+      if (usersFilter.length) {
+        updatedUserFilter = usersFilter.filter(user => employmentTypeFilter.some(({_id}) => user.type === _id))
+      } else {
+        updatedUserFilter = users.filter(user => employmentTypeFilter.some(({_id}) => user.type === _id))
+      }
+    }
+
     this.setState({loading: true})
     const endDate = moment.utc(startDate.date).add(1, 'months').toISOString()
     const reportsByUser = await getReports(startDate.date, endDate, 'user', {
-      users: usersFilter.map(user => user._id),
+      users: updatedUserFilter.map(user => user._id),
     })
     this.setState({
       loading: false,
@@ -110,6 +137,18 @@ class UsersReport extends React.Component {
     generateUsersReportCSV(reportsByUser, `${basename}-${timestamp}.csv`)
   }
 
+  getReportWeekday(report) {
+    if (!get(report, 'date')) {
+      return ''
+    }
+    try {
+      return moment(report.date).format('dddd')
+    } catch (err) {
+      console.error(err)
+      return ''
+    }
+  }
+
   applySort(key) {
     const {orderBy, orderDirection} = this.state
     if (orderBy !== key) {
@@ -125,137 +164,254 @@ class UsersReport extends React.Component {
     })
   }
 
+  async saveReport(report) {
+    const {_id, ...reportData} = report
+
+    const isNew = report._id.startsWith(NEW_PREFIX)
+
+    const updatedReport = isNew ?
+      await timetrackingService.addTimeTrackingReport(reportData) :
+      await timetrackingService.updateTimeTrackingReport(_id, reportData)
+
+    this.setState(prevState => {
+      const updatedUserReport = prevState.reportsByUser[updatedReport.userId].reports.map(r => r._id === _id ? updatedReport : r);
+
+      const updatedReportsByUser = {
+          ...prevState.reportsByUser,
+          [updatedReport.userId]: {
+              ...prevState.reportsByUser[updatedReport.userId],
+              reports: [...updatedUserReport],
+              totalHours: updatedUserReport.reduce((sum, r) => sum + r.duration, 0)
+          }
+      }
+
+      return {
+        ...prevState,
+        reportsByUser: updatedReportsByUser
+      };
+    });
+  }
+
+  async deleteReport(report) {
+      await timetrackingService.deleteTimeTrackingReport(report._id);
+
+      this.setState(prevState => {
+          const updatedUserReports = prevState.reportsByUser[report.userId].reports.filter(r => r._id !== report._id);
+
+          const updatedReportsByUser = {
+              ...prevState.reportsByUser,
+              [report.userId]: {
+                  ...prevState.reportsByUser[report.userId],
+                  reports: updatedUserReports,
+                  totalHours: updatedUserReports.reduce((sum, r) => sum + r.duration, 0)
+              }
+          };
+
+          return {
+            ...prevState,
+            reportsByUser: updatedReportsByUser
+          };
+      });
+  }
+
+  async duplicateReport(report) {
+    // Clone the report and assign a new unique ID with NEW_PREFIX
+    const newId = NEW_PREFIX + (dummyIdCounter++);
+    const clonedReport = {
+        ...report,
+        _id: newId
+    };
+
+    this.setState(prevState => {
+        const userReports = prevState.reportsByUser[report.userId].reports;
+        const reportIndex = userReports.findIndex(r => r._id === report._id);
+
+        // Insert the cloned report at the next index
+        const updatedUserReports = [
+            ...userReports.slice(0, reportIndex + 1),
+            clonedReport,
+            ...userReports.slice(reportIndex + 1)
+        ];
+
+        const updatedReportsByUser = {
+            ...prevState.reportsByUser,
+            [report.userId]: {
+                ...prevState.reportsByUser[report.userId],
+                reports: updatedUserReports,
+                totalHours: updatedUserReports.reduce((sum, r) => sum + r.duration, 0)
+            }
+        };
+
+        return {
+            ...prevState,
+            reportsByUser: updatedReportsByUser
+        };
+    });
+  }
+
   render() {
     const {classes} = this.props
-    const {loading, months, startDate, reportsByUser, users, usersFilter, orderBy, orderDirection} = this.state
+    const {
+      loading,
+      months,
+      startDate,
+      reportsByUser,
+      users,
+      usersFilter,
+      employmentTypeFilter,
+      orderBy,
+      orderDirection,
+      clients,
+      activities
+    } = this.state
+
     return (
       <Grid container direction='column'>
-        <Grid container spacing={8} justify='space-evenly'>
-          <Grid item xs={4}>
-            <MultipleSelection
-              label='חודש'
-              single={true}
-              disabled={loading}
-              value={startDate}
-              onChange={value => this.updateFilter('startDate', value)}
-              data={months}
-              displayField='display'
-              keyField='date'
-            />
+        <Grid container justify='space-between'>
+          <Grid container item xl={6}>
+            <Grid item xs={4}>
+              <MultipleSelection
+                label='חודש'
+                single={true}
+                disabled={loading}
+                value={startDate}
+                onChange={value => this.updateFilter('startDate', value)}
+                data={months}
+                displayField='display'
+                keyField='date'
+              />
+            </Grid>
+            <Grid item xs={4}>
+              <MultipleSelection
+                label='עובדים'
+                disabled={loading}
+                value={usersFilter}
+                onChange={value => this.updateFilter('usersFilter', value)}
+                data={users}
+                displayField='displayName'
+              />
+            </Grid>
+            <Grid item xs={4}>
+              <MultipleSelection
+                label='שכיר / עצמאי'
+                disabled={loading}
+                value={employmentTypeFilter}
+                onChange={value => this.updateFilter('employmentTypeFilter', value)}
+                data={EMPLOYMENT_TYPES}
+                keyField='_id'
+                displayField='title'
+              />
+            </Grid>
           </Grid>
-          <Grid item xs={4}>
-            <MultipleSelection
-              label='עובדים'
-              disabled={loading}
-              value={usersFilter}
-              onChange={value => this.updateFilter('usersFilter', value)}
-              data={users}
-              displayField='displayName'
-            />
-          </Grid>
-          <Grid item xs={1}>
-            <Button
-              color='primary'
-              variant='contained'
-              disabled={loading || !startDate}
-              onClick={this.load}
-            >
-              הצג
-            </Button>
-          </Grid>
-          <Grid item xs={1}>
-            <Button
-              color='primary'
-              variant='contained'
-              disabled={loading || !startDate}
-              onClick={this.downloadCSV}
-            >
-              CSV
-            </Button>
+          <Grid container item md={4} justify='flex-end'>
+            <Grid item xs={2}>
+              <Button
+                color='primary'
+                variant='contained'
+                disabled={loading || !startDate}
+                onClick={this.load}
+              >
+                הצג
+              </Button>
+            </Grid>
+            <Grid item xs={2}>
+              <Button
+                color='primary'
+                variant='contained'
+                disabled={loading || !startDate}
+                onClick={this.downloadCSV}
+              >
+                CSV
+              </Button>
+            </Grid>
           </Grid>
         </Grid>
         <Grid item>
           {loading ? <ActivityIndicator /> : map(reportsByUser,
-            ({reports, totalHours, numberOfWorkdays, salary, travelSalary, totalSalary}, clientId) => (
+            ({reports, totalHours, numberOfWorkdays}, clientId) => (
               <React.Fragment key={clientId}>
                 <Typography variant='title' gutterBottom className={classes.title}>
                   {reports[0].username}
                 </Typography>
                 <Paper>
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <HeaderCell field='date' selectedField={orderBy} selectedDirection={orderDirection} onClick={this.applySort}>תאריך</HeaderCell>
-                        <HeaderCell field='weekday' selectedField={orderBy} selectedDirection={orderDirection} onClick={this.applySort}>יום</HeaderCell>
-                        <HeaderCell field='startTime' selectedField={orderBy} selectedDirection={orderDirection} onClick={this.applySort}>זמן התחלה</HeaderCell>
-                        <HeaderCell field='endTime' selectedField={orderBy} selectedDirection={orderDirection} onClick={this.applySort}>זמן סיום</HeaderCell>
-                        <HeaderCell field='duration' selectedField={orderBy} selectedDirection={orderDirection} onClick={this.applySort}>מס שעות</HeaderCell>
-                        <HeaderCell field='clientName' selectedField={orderBy} selectedDirection={orderDirection} onClick={this.applySort}>לקוח</HeaderCell>
-                        <HeaderCell field='activityName' selectedField={orderBy} selectedDirection={orderDirection} onClick={this.applySort}>פעילות</HeaderCell>
-                        <HeaderCell field='notes' selectedField={orderBy} selectedDirection={orderDirection} onClick={this.applySort}>הערות</HeaderCell>
-                        <HeaderCell field='modifiedAt' selectedField={orderBy} selectedDirection={orderDirection} onClick={this.applySort}>זמן עדכון</HeaderCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {getSortedData(reports, orderBy, orderDirection).map(report => {
-                        const m = moment(report.date)
-                        return (
-                          <TableRow key={report._id}>
-                            <TableCell className={classes.cell}>{m.format('D/MM/YYYY')}</TableCell>
-                            <TableCell className={classes.cell}>{m.format('dddd')}</TableCell>
-                            <TableCell className={classes.cell}>{report.startTime}</TableCell>
-                            <TableCell className={classes.cell}>{report.endTime}</TableCell>
-                            <TableCell className={classes.cell}>{report.duration}</TableCell>
-                            <TableCell className={classes.cell}>{report.clientName}</TableCell>
-                            <TableCell className={classes.cell}>{report.activityName}</TableCell>
-                            <TableCell className={classes.cell}>{report.notes}</TableCell>
-                            <TableCell className={classes.cell}>{moment(report.modifiedAt).format('HH:mm D/MM/YYYY')}</TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                    <TableFooter>
-                      <TableRow>
-                        <TableCell className={classes.cell}>
-                          שכר
-                        </TableCell>
-                        <TableCell className={classes.cell} colSpan={2}>
-                          {salary}₪
-                        </TableCell>
-                        <TableCell className={classes.cell}>
-                          שעות עבודה
-                        </TableCell>
-                        <TableCell className={classes.cell}>
-                          {totalHours}
-                        </TableCell>
-                        <TableCell />
-                      </TableRow>
-                      <TableRow>
-                        <TableCell className={classes.cell}>
-                          נסיעות
-                        </TableCell>
-                        <TableCell className={classes.cell} colSpan={2}>
-                          {travelSalary}₪
-                        </TableCell>
-                        <TableCell className={classes.cell}>
-                          ימי עבודה
-                        </TableCell>
-                        <TableCell className={classes.cell}>
-                          {numberOfWorkdays}
-                        </TableCell>
-                        <TableCell />
-                      </TableRow>
-                      <TableRow>
-                        <TableCell className={classes.cell}>
-                          סה״כ
-                        </TableCell>
-                        <TableCell className={classes.cell}>
-                          {totalSalary}₪
-                        </TableCell>
-                        <TableCell />
-                      </TableRow>
-                    </TableFooter>
-                  </Table>
+                  <EditableTable
+                    data={getSortedData(reports, orderBy, orderDirection)}
+                    headers={[{
+                      id: 'date',
+                      title: 'תאריך',
+                      type: 'date',
+                      focus: true,
+                      sortable: true
+                    }, {
+                      id: 'weekday',
+                      title: 'יום',
+                      type: 'computed',
+                      transform: this.getReportWeekday,
+                      sortable: true
+                    }, {
+                      id: 'startTime',
+                      title: 'זמן התחלה',
+                      type: 'time',
+                      sortable: true
+                    }, {
+                      id: 'endTime',
+                      title: 'זמן סיום',
+                      type: 'time',
+                      sortable: true
+                    }, {
+                      id: 'duration',
+                      title: 'מס שעות',
+                      type: 'number',
+                      sortable: true
+                    }, {
+                      id: 'clientId',
+                      title: 'לקוח',
+                      select: clients,
+                      idField: '_id',
+                      displayField: 'name',
+                      sortable: true
+                    }, {
+                      id: 'activityId',
+                      title: 'פעילות',
+                      select: ({clientId}) => activities[clientId],
+                      idField: '_id',
+                      displayField: 'name',
+                      sortable: true
+                    }, {
+                      id: 'notes',
+                      title: 'הערות',
+                      multiline: true,
+                      wide: true
+                    }, {
+                      id: 'modifiedAt',
+                      title: 'זמן עדכון',
+                      type: 'computed',
+                      transform: ({modifiedAt}) => moment(modifiedAt).format('HH:mm D/MM/YYYY'),
+                      sortable: true
+                    }]}
+                    onSave={this.saveReport}
+                    onDelete={this.deleteReport}
+                    onDuplicate={this.duplicateReport}
+                    footerData={[{
+                      cells: [
+                        {},
+                        {},
+                        {},
+                        { content: 'שעות עבודה' },
+                        { content: totalHours },
+                        {},
+                      ]
+                    }, {
+                      cells: [
+                        {},
+                        {},
+                        {},
+                        { content: 'ימי עבודה' },
+                        { content: numberOfWorkdays },
+                        {},
+                      ]
+                    }]}
+                  />
                 </Paper>
               </React.Fragment>
             )
