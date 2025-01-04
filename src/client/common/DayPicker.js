@@ -1,40 +1,60 @@
-import React from 'react'
-import DayPickerInput from 'react-day-picker/DayPickerInput';
-import MomentLocaleUtils from 'react-day-picker/moment';
-import 'react-day-picker/lib/style.css';
-import TextField from '@material-ui/core/TextField';
-import { withStyles } from '@material-ui/core/styles';
+import React from 'react';
+import { DayPicker } from 'react-day-picker';
+import { format, parse } from 'date-fns';
+import { he as locale } from 'date-fns/locale';
+import 'react-day-picker/dist/style.css';
+import TextField from '@mui/material/TextField';
+import { withStyles } from '@mui/styles';
 
-import 'moment/locale/he'
-
-const styles = theme => ({
+const styles = () => ({
   overlay: {
     position: 'absolute',
     backgroundColor: 'white',
     borderColor: 'black',
-    borderWidth: 2
-  }
-})
+    borderWidth: 2,
+  },
+});
 
-const DAY_PICKER_PROPS = {
-  locale: 'he',
-  localeUtils: MomentLocaleUtils,
-  canChangeMonth: false,
-}
+const parseDate = (str, formatStr, locale) => {
+  const parsed = parse(str, formatStr, new Date(), { locale });
+  return isNaN(parsed) ? undefined : parsed;
+};
 
-const DayPicker = ({classes, error, ...rest}) => (
-  <DayPickerInput
-    dayPickerProps={DAY_PICKER_PROPS}
-    inputProps={{
-      error,
-      inputProps: {
-        readOnly: true
+const formatDate = (date, formatStr, locale) =>
+  format(date, formatStr, { locale });
+
+const ForwardRefTextField = React.forwardRef((props, ref) => (
+  <TextField {...props} inputRef={ref} />
+));
+
+const DayPickerComponent = React.forwardRef(
+  ({ classes, error, value, onChange, ...rest }, ref) => {
+    const handleDayChange = (day) => {
+      if (onChange) {
+        onChange(day);
       }
-    }}
-    component={TextField}
-    classNames={classes}
-    {...rest}
-  />
-)
+    };
 
-export default withStyles(styles)(DayPicker)
+    return (
+      <div>
+        <DayPicker
+          mode="single"
+          selected={value}
+          onSelect={handleDayChange}
+          locale={locale}
+          {...rest}
+        />
+        <ForwardRefTextField
+          value={value ? formatDate(value, 'dd/MM/yyyy', locale) : ''}
+          onChange={(e) => {
+            const parsedDate = parseDate(e.target.value, 'dd/MM/yyyy', locale);
+            handleDayChange(parsedDate);
+          }}
+          error={error}
+        />
+      </div>
+    );
+  }
+);
+
+export default withStyles(styles)(DayPickerComponent);

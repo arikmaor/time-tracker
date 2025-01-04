@@ -1,148 +1,181 @@
-import React from 'react';
-import {withRouter, Route, Link} from 'react-router-dom'
-import PropTypes from 'prop-types';
-import { withStyles } from '@material-ui/core/styles';
-import AppBar from '@material-ui/core/AppBar';
-import Toolbar from '@material-ui/core/Toolbar';
-import Typography from '@material-ui/core/Typography';
-import Button from '@material-ui/core/Button';
-import IconButton from '@material-ui/core/IconButton';
-import SettingsIcon from '@material-ui/icons/Settings'
-import Menu from '@material-ui/core/Menu'
-import MenuItem from '@material-ui/core/MenuItem';
-import Divider from '@material-ui/core/Divider';
+import React, { useState } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import PropTypes from "prop-types";
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  IconButton,
+  Menu,
+  MenuItem,
+  Divider,
+} from "@mui/material";
+import { styled } from "@mui/material/styles";
+import SettingsIcon from "@mui/icons-material/Settings";
+import * as authService from "core/authService";
 
-import * as authService from 'core/authService'
+// Styled Components
+const Root = styled("div")(({ theme }) => ({
+  flexGrow: 1,
+  marginBottom: theme.spacing(2),
+}));
 
-const styles = {
-  root: {
-    flexGrow: 1,
-    marginBottom: 20
+const FlexTypography = styled(Typography)(() => ({
+  flexGrow: 1,
+}));
+
+const NavButtonLink = styled(NavLink)(({ theme }) => ({
+  textDecoration: "none",
+  color: 'white',
+  "&.active": {
+    border: `1px solid white`,
+    borderRadius: theme.shape.borderRadius,
   },
-  flex: {
-    flexGrow: 1,
-  },
-  menuButton: {
-    marginRight: -12,
-    marginLeft: 20,
-  },
+}));
+
+const NavButton = ({ to, children }) => (
+  <NavButtonLink to={to}>
+    <Button color="inherit">{children}</Button>
+  </NavButtonLink>
+);
+
+NavButton.propTypes = {
+  to: PropTypes.string.isRequired,
+  children: PropTypes.node.isRequired,
 };
 
-const NavLink = ({ to, children, className, activeClassName, ...rest }) => (
-  <Route
-    path={typeof to === "object" ? to.pathname : to}
-    children={({ location, match }) => {
-      const isActive = !!match;
-      return (
-        <Link
-          {...rest}
-          className={isActive
-            ? [className, activeClassName].filter(i => i).join(" ")
-            : className
-          }
-          to={to}
-        >
-          {typeof children === 'function' ? children(isActive) : children}
-        </Link>
-      )
-    }}
-  />
-)
+const NavMenuItem = ({ to, children, onClick }) => {
+  const navigate = useNavigate();
 
-const NavMenuItem = withRouter(({history, to, children, onClick}) => (
-  <MenuItem onClick={(e) => {history.push(to); onClick(e)}}>
-    <NavLink to={to} style={{ textDecoration: 'none', color: 'inherit' }}>
-      {isActive => children}
-    </NavLink>
-  </MenuItem>
-))
-
-const NavButton = ({to, children}) => (
-  <NavLink to={to} style={{ textDecoration: 'none', color: 'inherit' }}>
-    {isActive => <Button color="inherit" variant={isActive ? 'outlined' : 'text'} style={{borderColor: 'red'}}>{children}</Button>}
-  </NavLink>
-)
-
-const NavIcon = ({to, children}) => (
-  <NavLink to={to} style={{ textDecoration: 'none', color: 'inherit' }}>
-    {isActive => children}
-  </NavLink>
-)
-
-class AppHeader extends React.Component {
-
-  state = {
-    anchorEl: null
-  }
-
-  static propTypes = {
-    classes: PropTypes.object.isRequired,
-    isAdmin: PropTypes.bool.isRequired,
-    displayName: PropTypes.string.isRequired
+  const handleClick = (e) => {
+    if (onClick) onClick(e);
+    navigate(to);
   };
 
-  handleMenu = event => {
-    this.setState({ anchorEl: event.currentTarget });
+  return (
+    <MenuItem onClick={handleClick}>
+      <Typography>{children}</Typography>
+    </MenuItem>
+  );
+};
+
+NavMenuItem.propTypes = {
+  to: PropTypes.string.isRequired,
+  children: PropTypes.node.isRequired,
+  onClick: PropTypes.func,
+};
+
+const appPages = [
+  {
+    path: "clientsreport",
+    label: "דוח לקוחות",
+    isAdminRequired: true,
+  },
+  {
+    path: "usersreport",
+    label: "דוח עובדים",
+    isAdminRequired: true,
+  },
+  {
+    path: "activitiesreport",
+    label: "דוח פעילות",
+    isAdminRequired: true,
+  },
+  {
+    path: "advancedreport",
+    label: "דוח מפורט",
+    isAdminRequired: true,
+  },
+  {
+    path: "timetracking",
+    label: "דיווח שעות",
+    isAdminRequired: false,
+  },
+]
+
+const AppHeader = ({ isAdmin, displayName }) => {
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [currentPage, setCurrentPage] = useState("timetracking");
+  const navigate = useNavigate();
+
+  const handleMenu = (event) => {
+    setAnchorEl(event.currentTarget);
   };
 
-  handleClose = () => {
-    this.setState({ anchorEl: null });
+  const handleClose = () => {
+    setAnchorEl(null);
   };
 
-  signOut() {
-    authService.signOut()
-    this.props.history.push('/login')
-  }
+  const signOut = () => {
+    authService.signOut();
+    navigate("/login");
+  };
 
-  render() {
-    const {anchorEl} = this.state
-    const {classes, isAdmin, displayName} = this.props
+  return (
+    <Root>
+      <AppBar position="static">
+        <Toolbar>
+          <FlexTypography variant="h6">
+            שמיר יעוץ והדרכה - {displayName}
+          </FlexTypography>
+          {appPages.map((page, index) => (!page.isAdminRequired || isAdmin) && (
+            <NavButton to={`/${page.path}`} key={index}>
+              {page.label}
+            </NavButton>
+          ))}
+          <IconButton
+            aria-controls={anchorEl ? "menu-appbar" : undefined}
+            aria-haspopup="true"
+            onClick={handleMenu}
+            color="inherit"
+          >
+            <SettingsIcon />
+          </IconButton>
+          <Menu
+            id="menu-appbar"
+            anchorEl={anchorEl}
+            anchorOrigin={{
+              vertical: "top",
+              horizontal: "right",
+            }}
+            transformOrigin={{
+              vertical: "top",
+              horizontal: "right",
+            }}
+            open={Boolean(anchorEl)}
+            onClose={handleClose}
+          >
+            {isAdmin && (
+              <NavMenuItem to="/activities" onClick={handleClose}>
+                פעילויות
+              </NavMenuItem>
+            )}
+            {isAdmin && (
+              <NavMenuItem to="/clients" onClick={handleClose}>
+                לקוחות
+              </NavMenuItem>
+            )}
+            {isAdmin && (
+              <NavMenuItem to="/users" onClick={handleClose}>
+                עובדים
+              </NavMenuItem>
+            )}
+            {isAdmin && <Divider />}
+            <NavMenuItem to="/changepassword" onClick={handleClose}>
+              שינוי סיסמא
+            </NavMenuItem>
+            <MenuItem onClick={signOut}>יציאה</MenuItem>
+          </Menu>
+        </Toolbar>
+      </AppBar>
+    </Root>
+  );
+};
 
-    return (
-      <div className={classes.root}>
-        <AppBar position="static">
-          <Toolbar>
-            <Typography variant="title" color="inherit" className={classes.flex}>
-              שמיר יעוץ והדרכה - {displayName}
-            </Typography>
-            {isAdmin && <NavButton to='/clientsreport'>דוח לקוחות</NavButton>}
-            {isAdmin && <NavButton to='/usersreport'>דוח עובדים</NavButton>}
-            {isAdmin && <NavButton to='/advancedreport'>דוח מפורט</NavButton>}
-            <NavButton to='/timetracking'>דיווח שעות</NavButton>
-            <IconButton
-              aria-owns={open ? 'menu-appbar' : null}
-              aria-haspopup="true"
-              onClick={this.handleMenu}
-              color="inherit"
-              >
-              <SettingsIcon/>
-            </IconButton>
-            <Menu
-              id="menu-appbar"
-              anchorEl={this.state.anchorEl}
-              anchorOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
-              open={!!anchorEl}
-              onClose={this.handleClose}
-            >
-              {isAdmin && <NavMenuItem to='/activities' onClick={this.handleClose}>פעילויות</NavMenuItem>}
-              {isAdmin && <NavMenuItem to='/clients' onClick={this.handleClose}>לקוחות</NavMenuItem>}
-              {isAdmin && <NavMenuItem to='/users' onClick={this.handleClose}>עובדים</NavMenuItem>}
-              {isAdmin && <Divider />}
-              <NavMenuItem to='/changepassword' onClick={this.handleClose}>שינוי סיסמא</NavMenuItem>
-              <MenuItem onClick={this.signOut}>יציאה</MenuItem>
-            </Menu>
-          </Toolbar>
-        </AppBar>
-      </div>
-    );
-  }
-}
+AppHeader.propTypes = {
+  isAdmin: PropTypes.bool.isRequired,
+  displayName: PropTypes.string.isRequired,
+};
 
-export default withRouter(withStyles(styles)(AppHeader));
+export default AppHeader;

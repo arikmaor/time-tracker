@@ -1,165 +1,166 @@
-import React from 'react'
-import PropTypes from 'prop-types'
-import {withRouter} from 'react-router-dom'
-import {get} from 'lodash'
-import Grid from '@material-ui/core/Grid'
-import withStyles from '@material-ui/core/styles/withStyles';
-import List from '@material-ui/core/List';
-import ListItem from '@material-ui/core/ListItem';
-import ListItemText from '@material-ui/core/ListItemText';
-import Paper from '@material-ui/core/Paper';
+import React, { useEffect, useState } from "react";
+import PropTypes from "prop-types";
+import { useParams, useNavigate } from "react-router-dom";
+import Grid from "@mui/material/Grid";
+import withStyles from "@mui/styles/withStyles";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import ListItemText from "@mui/material/ListItemText";
+import Paper from "@mui/material/Paper";
+import Button from "@mui/material/Button";
+import AddIcon from "@mui/icons-material/Add";
 
-import Button from '@material-ui/core/Button';
-import AddIcon from '@material-ui/icons/Add'
+import TextField from "common/TextField";
+import ActivityIndicator from "common/ActivityIndicator";
+import Client from "./Client";
 
+import * as clientsService from "core/clientsService";
+import * as activitiesService from "core/activitiesService";
 
-import TextField from 'common/TextField'
-import ActivityIndicator from 'common/ActivityIndicator'
-
-import Client from './Client'
-
-import * as clientsService from 'core/clientsService'
-import * as activitiesService from 'core/activitiesService'
-
-const styles = theme => ({
+const styles = (theme) => ({
   listItemText: {
-    textAlign: 'right'
+    textAlign: "right",
   },
   buttonsRow: {
-    textAlign: 'left'
-  }
-})
+    textAlign: "left",
+  },
+});
 
-class Clients extends React.Component {
+const Clients = ({ classes }) => {
+  const { clientId } = useParams(); // Get clientId from the URL
+  const navigate = useNavigate(); // Navigate programmatically
 
-  static propTypes = {
-    classes: PropTypes.object.isRequired,
-    match: PropTypes.object
-  };
-
-  state = {
+  const [state, setState] = useState({
     loading: true,
     clients: [],
-    filter: '',
+    filter: "",
     activities: [],
-    selectedClientId: null
-  }
+    selectedClientId: null,
+  });
 
-  constructor(props) {
-    super(props)
-    this.init()
-  }
+  useEffect(() => {
+    const init = async () => {
+      const [clients, activities] = await Promise.all([
+        clientsService.getAllClients(),
+        activitiesService.getAllActivities(),
+      ]);
+      setState((prevState) => ({
+        ...prevState,
+        loading: false,
+        clients,
+        activities,
+      }));
+    };
+    init();
+  }, []);
 
-  async init() {
-    const [clients, activities] = await Promise.all([
-      clientsService.getAllClients(),
-      activitiesService.getAllActivities()
-    ])
-    this.setState({
-      loading: false,
-      clients,
-      activities,
-    })
-  }
+  const setFilter = (e) => {
+    setState((prevState) => ({
+      ...prevState,
+      filter: e.target.value,
+    }));
+  };
 
-  setFilter(e) {
-    this.setState({
-      filter: e.target.value
-    })
-  }
+  const selectClient = (client) => {
+    navigate(`/clients/${client._id}`); // Use navigate instead of this.props.history
+  };
 
-  selectClient(client) {
-    this.props.history.push(`/clients/${client._id}`)
-  }
+  const addNewClient = () => {
+    navigate(`/clients/new`);
+  };
 
-  addNewClient() {
-   this.props.history.push(`/clients/new`)
-  }
-
-  onUpdate(client) {
-    const idx = this.state.clients.findIndex(({_id}) => _id === client._id)
+  const onUpdate = (client) => {
+    const idx = state.clients.findIndex(({ _id }) => _id === client._id);
     if (idx === -1) {
-      this.setState({
-        clients: [
-          client,
-          ...this.state.clients
-        ]
-      })
-      this.props.history.push(`/clients/${client._id}`)
+      setState((prevState) => ({
+        ...prevState,
+        clients: [client, ...prevState.clients],
+      }));
+      navigate(`/clients/${client._id}`);
     } else {
-      this.setState({
+      setState((prevState) => ({
+        ...prevState,
         clients: [
-          ...this.state.clients.slice(0, idx),
+          ...prevState.clients.slice(0, idx),
           client,
-          ...this.state.clients.slice(idx+1)
-        ]
-      })
+          ...prevState.clients.slice(idx + 1),
+        ],
+      }));
     }
+  };
+
+  const onDelete = (clientId) => {
+    setState((prevState) => ({
+      ...prevState,
+      clients: prevState.clients.filter(({ _id }) => _id !== clientId),
+    }));
+    navigate(`/clients`);
+  };
+
+  const { loading, clients, filter, activities } = state;
+  const selectedClientId = Number(clientId) || clientId;
+
+  if (loading) {
+    return <ActivityIndicator />;
   }
 
-  onDelete(clientId) {
-    this.setState({
-      clients: this.state.clients.filter(({_id}) => _id !== clientId)
-    })
-    this.props.history.push(`/clients`)
-  }
-
-  render() {
-    const {classes, match} = this.props
-    const {loading, clients, filter, activities} = this.state
-
-    const clientId = get(match, 'params.clientId')
-    const selectedClientId = Number(clientId) || clientId
-
-    if (loading) {
-      return <ActivityIndicator />
-    }
-
-    return (
-      <Grid container spacing={24}>
-        <Grid item xs={4}>
-          <TextField label='חיפוש' fullWidth={true} onChange={this.setFilter} value={filter}/>
-          <Paper>
-            <List>
-              {clients.filter(({name}) => name.includes(filter)).map(client => [
+  return (
+    <Grid padding={1} container spacing={3}>
+      <Grid item xs={4}>
+        <TextField
+          label="חיפוש"
+          fullWidth={true}
+          onChange={setFilter}
+          value={filter}
+        />
+        <Paper>
+          <List>
+            {clients
+              .filter(({ name }) => name.includes(filter))
+              .map((client) => (
                 <ListItem
                   key={client._id}
                   button
                   selected={client._id === selectedClientId}
-                  onClick={() => this.selectClient(client)}
+                  onClick={() => selectClient(client)}
                 >
-                  <ListItemText className={classes.listItemText}
-                  primary={client.name}
-                />
+                  <ListItemText
+                    className={classes.listItemText}
+                    primary={client.name}
+                  />
                 </ListItem>
-              ])}
-            </List>
-          </Paper>
-        </Grid>
-        <Grid item xs={8}>
-          <Grid container spacing={24} direction='column'>
-            <Grid item className={classes.buttonsRow}>
-              <Button onClick={this.addNewClient} variant="contained" color="primary">
-                <AddIcon className={classes.newIcon}/>
-                לקוח חדש
-              </Button>
-            </Grid>
-            <Grid item>
-              {selectedClientId && <Paper>
+              ))}
+          </List>
+        </Paper>
+      </Grid>
+      <Grid item xs={8}>
+        <Grid container spacing={3} direction="column">
+          <Grid item className={classes.buttonsRow}>
+            <Button onClick={addNewClient} variant="contained" color="primary">
+              <AddIcon className={classes.newIcon} />
+              לקוח חדש
+            </Button>
+          </Grid>
+          <Grid item>
+            {selectedClientId && (
+              <Paper>
                 <Client
                   clientId={selectedClientId}
                   activities={activities}
-                  onUpdate={this.onUpdate}
-                  onDelete={this.onDelete}
+                  onUpdate={onUpdate}
+                  onDelete={onDelete}
                 />
-              </Paper>}
-            </Grid>
+              </Paper>
+            )}
           </Grid>
         </Grid>
       </Grid>
-    )
-  }
+    </Grid>
+  );
+};
 
-}
+Clients.propTypes = {
+  classes: PropTypes.object.isRequired,
+};
 
-export default withStyles(styles)(withRouter(Clients))
+export default withStyles(styles)(Clients);

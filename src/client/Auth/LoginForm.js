@@ -1,30 +1,31 @@
 import React, { Component } from "react";
-import { Redirect } from "react-router-dom";
+import { Navigate } from "react-router-dom"; // Use Navigate instead of Redirect
 import { get } from "lodash";
-import Button from "@material-ui/core/Button";
-import Paper from "@material-ui/core/Paper";
+import Button from "@mui/material/Button";
+import Paper from "@mui/material/Paper";
+import Typography from "@mui/material/Typography";
+import withStyles from "@mui/styles/withStyles";
 import ErrorMessage from "common/ErrorMessage";
-import Typography from "@material-ui/core/Typography";
 import { signIn, getSignedInUser } from "core/authService";
-import withStyles from "@material-ui/core/styles/withStyles";
 import TextField from "common/TextField";
 import ActivityIndicator from "common/ActivityIndicator";
-import IconButton from "@material-ui/core/IconButton";
-import InputAdornment from "@material-ui/core/InputAdornment";
-import Visibility from "@material-ui/icons/Visibility";
-import VisibilityOff from "@material-ui/icons/VisibilityOff";
+import IconButton from "@mui/material/IconButton";
+import InputAdornment from "@mui/material/InputAdornment";
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
 
 const styles = (theme) => ({
   root: {
     width: 300,
     margin: "auto",
-    marginTop: theme.spacing.unit * 5,
+    marginTop: theme.spacing(5),
   },
   form: {
     display: "flex",
+    gap: 5,
     flexDirection: "column",
     alignItems: "center",
-    padding: theme.spacing.unit * 2,
+    padding: theme.spacing(2),
   },
 });
 
@@ -37,7 +38,7 @@ class LoginForm extends Component {
     passwordError: "",
     error: "",
     user: null,
-    showPassword: false, // Added to manage password visibility
+    showPassword: false,
   };
 
   constructor(props) {
@@ -107,13 +108,14 @@ class LoginForm extends Component {
     } = this.state;
 
     if (user) {
-      return <Redirect to={get(location, "state.from", "/")} />;
+      const redirectTo = get(location, "state.from", "/");
+      return <Navigate to={redirectTo} replace />; // Use Navigate for redirection
     }
 
     return (
       <Paper className={classes.root}>
-        <form className={classes.form} onSubmit={this.performLogin}>
-          <Typography variant="title">שמיר יעוץ והדרכה</Typography>
+        <form className={classes.form} onSubmit={(e) => this.performLogin(e)}>
+          <Typography variant="h6">שמיר יעוץ והדרכה</Typography>
           <TextField
             name="username"
             label="שם משתמש"
@@ -126,30 +128,25 @@ class LoginForm extends Component {
           <TextField
             name="password"
             label="סיסמא"
-            type={this.state.showPassword ? "text" : "password"} // Toggle between text and password
-            value={this.state.password}
+            type={showPassword ? "text" : "password"}
+            value={password}
             onChange={this.setPassword}
-            error={!!this.state.passwordError}
+            error={!!passwordError}
             fullWidth={true}
-            disabled={this.state.authenticating}
+            disabled={authenticating}
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
                   <IconButton
                     onClick={this.togglePasswordVisibility}
-                    onMouseDown={(e) => e.preventDefault()} // Prevent focus change on mousedown
+                    onMouseDown={(e) => e.preventDefault()}
                   >
-                    {this.state.showPassword ? (
-                      <Visibility />
-                    ) : (
-                      <VisibilityOff />
-                    )}
+                    {showPassword ? <Visibility /> : <VisibilityOff />}
                   </IconButton>
                 </InputAdornment>
               ),
             }}
           />
-
           <ErrorMessage>{error}</ErrorMessage>
           {authenticating ? (
             <ActivityIndicator />

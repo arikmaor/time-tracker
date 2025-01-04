@@ -2,64 +2,72 @@ import React from 'react'
 import PropTypes from 'prop-types';
 import {get, sortBy, isFunction} from 'lodash'
 import memoizeOne from 'memoize-one';
-import { withStyles } from '@material-ui/core/styles';
+import { withStyles } from '@mui/styles';
 
-import Table from '@material-ui/core/Table';
-import TableBody from '@material-ui/core/TableBody';
-import TableCell from '@material-ui/core/TableCell';
-import TableHead from '@material-ui/core/TableHead';
-import TableRow from '@material-ui/core/TableRow';
-import TableSortLabel from '@material-ui/core/TableSortLabel';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import TableSortLabel from '@mui/material/TableSortLabel';
+import TableFooter from '@mui/material/TableFooter';
 
-import TextField from '@material-ui/core/TextField';
+import TextField from '@mui/material/TextField';
 
-import IconButton from '@material-ui/core/IconButton';
-import DeleteIcon from '@material-ui/icons/Delete'
-import EditIcon from '@material-ui/icons/Edit'
-import FilterNoneIcon from '@material-ui/icons/FilterNone'
-import SaveIcon from '@material-ui/icons/Save'
-import UndoIcon from '@material-ui/icons/Undo'
+import IconButton from '@mui/material/IconButton';
+import DeleteIcon from '@mui/icons-material/Delete'
+import EditIcon from '@mui/icons-material/Edit'
+import FilterNoneIcon from '@mui/icons-material/FilterNone'
+import SaveIcon from '@mui/icons-material/Save'
+import UndoIcon from '@mui/icons-material/Undo'
 
 import ActivityIndicator from 'common/ActivityIndicator'
 import DayPicker from 'common/DayPicker'
 
-import { MenuItem } from '@material-ui/core';
+import { MenuItem } from '@mui/material';
 
-const styles = theme => ({
+const styles = (theme) => ({
   root: {
     width: '100%',
-    marginTop: theme.spacing.unit * 3,
+    marginTop: theme.spacing(3), // Updated spacing API
     overflowX: 'auto',
   },
   table: {
-    minWidth: 700
+    minWidth: 700,
   },
   bigCell: {
     fontSize: '1.25rem',
     textAlign: 'right',
     whiteSpace: 'pre-line',
-    padding: theme.spacing.unit * 1.5,
-    width: '50%'
+    padding: theme.spacing(1.5), // Updated spacing API
+    width: '50%',
   },
   smallCell: {
     fontSize: '1.25rem',
     textAlign: 'right',
-    padding: theme.spacing.unit * 1.5,
-    whiteSpace: 'nowrap'
+    padding: theme.spacing(1.5), // Updated spacing API
+    whiteSpace: 'nowrap',
+  },
+  footerCell: {
+    fontSize: '1.25rem',
+    textAlign: 'right',
+    padding: theme.spacing(1.5), // Updated spacing API
+    whiteSpace: 'nowrap',
   },
   input: {
     fontSize: '1.25rem',
   },
   fullWidth: {
-    width: '100%'
+    width: '100%',
   },
   monthSelection: {
-    marginTop: theme.spacing.unit * 1.5
+    marginTop: theme.spacing(1.5), // Updated spacing API
   },
   newIcon: {
-    marginLeft: theme.spacing.unit
-  }
-})
+    marginLeft: theme.spacing(1), // Updated spacing API
+  },
+});
+
 
 class EditableTable extends React.Component {
   static propTypes = {
@@ -82,13 +90,23 @@ class EditableTable extends React.Component {
     onDelete: PropTypes.func.isRequired,
     onSave: PropTypes.func.isRequired,
     onDuplicate: PropTypes.func,
-
+    footerData: PropTypes.arrayOf(
+      PropTypes.shape({
+        cells: PropTypes.arrayOf(
+          PropTypes.shape({
+            content: PropTypes.node,
+            colSpan: PropTypes.number,
+          })
+        ),
+      })
+    ),
   }
 
   static defaultProps = {
     idField: '_id',
     isNew: () => false,
-    preventEdit: () => false
+    preventEdit: () => false,
+    footerData: null
   }
 
   state = {
@@ -112,7 +130,7 @@ class EditableTable extends React.Component {
   }
 
   render() {
-    const {classes, headers, data, idField, isNew, preventEdit, ...otherProps} = this.props
+    const {classes, headers, data, idField, isNew, preventEdit, footerData, ...otherProps} = this.props
     const {orderBy, orderDirection} = this.state
     return (
       <Table>
@@ -146,6 +164,19 @@ class EditableTable extends React.Component {
             />
           ))}
         </TableBody>
+        {footerData && (
+          <TableFooter>
+            {footerData.map((row, rowIndex) => (
+              <TableRow key={rowIndex}>
+                {row.cells.map(({wide, content, colSpan}, cellIndex) => (
+                  <TableCell key={cellIndex} colSpan={colSpan || 1} className={wide ? classes.bigCell : classes.smallCell}>
+                    <b>{content}</b>
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableFooter>
+        )}
       </Table>
     )
   }
@@ -271,6 +302,7 @@ class _EditableRow extends React.Component {
   }
 
   updateData(key, value) {
+    console.log(key, value)
     this.setState({
       data: {
         ...this.state.data,
@@ -292,10 +324,11 @@ class _EditableRow extends React.Component {
               (!edit || saving || type === 'readonly') ? (
                 (select && selectOptions) ? (selectOptions.find(option => option[idField] === data[id]) || {})[displayField] : data[id]
               ) : (type === 'date') ? (
-                <DayPicker
+                <TextField
+                  fullWidth
+                  type="date"
                   value={data[id]}
-                  error={errorFields.includes(id)}
-                  onDayChange={val => this.updateData(id, val.toISOString().split('T', 1)[0])}
+                  onChange={e => this.updateData(id, e.target.value.toString().split('T', 1)[0])}
                 />
               ) : (
                 <TextField

@@ -1,78 +1,91 @@
-import React from 'react'
-import classNames from 'classnames';
-import { withStyles } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
-import TextField from '@material-ui/core/TextField';
-import Paper from '@material-ui/core/Paper';
-import Chip from '@material-ui/core/Chip';
-import MenuItem from '@material-ui/core/MenuItem';
-import CancelIcon from '@material-ui/icons/Cancel';
-import { emphasize } from '@material-ui/core/styles/colorManipulator';
-import Select from "react-select"
+import React, { use } from "react";
+import { useTheme } from "@mui/material/styles";
+import Typography from "@mui/material/Typography";
+import TextField from "@mui/material/TextField";
+import Paper from "@mui/material/Paper";
+import Chip from "@mui/material/Chip";
+import MenuItem from "@mui/material/MenuItem";
+import Box from "@mui/material/Box";
+import CancelIcon from "@mui/icons-material/Cancel";
+import { emphasize } from "@mui/system";
+import Select from "react-select";
 
-const styles = theme => ({
-  root: {
-    flexGrow: 1,
-    height: 250,
-  },
-  formControl: {
-    padding: '0 16px'
-  },
-  input: {
-    display: 'flex',
-    padding: 0
-  },
-  valueContainer: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    flex: 1,
-    alignItems: 'center',
-  },
-  chip: {
-    margin: `${theme.spacing.unit / 2}px ${theme.spacing.unit / 4}px`,
-  },
-  chipFocused: {
-    backgroundColor: emphasize(
-      theme.palette.type === 'light' ? theme.palette.grey[300] : theme.palette.grey[700],
-      0.08,
-    ),
-  },
-  deleteIcon: {
-    marginLeft: theme.spacing.unit / 2
-  },
-  noOptionsMessage: {
-    padding: `${theme.spacing.unit}px ${theme.spacing.unit * 2}px`,
-  },
-  singleValue: {
-    fontSize: 16,
-  },
-  placeholder: {
-    position: 'absolute',
-    right: 2,
-    fontSize: 16,
-  },
-  paper: {
-    position: 'absolute',
-    zIndex: 1,
-    marginTop: theme.spacing.unit,
-    left: 0,
-    right: 0,
-  },
-  divider: {
-    height: theme.spacing.unit * 2,
-  },
-  label: {
-    left: 'unset',
-    direction: 'rtl',
-    transformOrigin: 'top right'
-  },
-});
+// Styles for the component
+const useStyles = () => {
+  const theme = useTheme();
 
+  return {
+    root: {
+      flexGrow: 1,
+      height: 250,
+    },
+    formControl: {
+      // padding: TBD
+    },
+    input: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    valueContainer: {
+      display: "flex",
+      flexWrap: "wrap",
+      flex: 1,
+      alignItems: "center",
+    },
+    chip: {
+      padding: '0 10px',
+      margin: `${theme.spacing(0.5)} ${theme.spacing(0.5)}`,
+    },
+    chipFocused: {
+      backgroundColor: emphasize(
+        theme.palette.mode === "light"
+          ? theme.palette.grey[300]
+          : theme.palette.grey[700],
+        0.08
+      ),
+    },
+    deleteIcon: {
+      margin: `${theme.spacing(0)} ${theme.spacing(0.5)}`,
+    },
+    noOptionsMessage: {
+      padding: `${theme.spacing(1)}px ${theme.spacing(2)}px`,
+    },
+    singleValue: {
+      fontSize: 16,
+    },
+    placeholder: {
+      position: "absolute",
+      right: 10,
+      fontSize: 16,
+    },
+    paper: {
+      position: "absolute",
+      zIndex: 1,
+      marginTop: theme.spacing(1),
+      left: 0,
+      right: 0,
+    },
+    menuPortal: {
+      zIndex: 9999, // Ensures the menu floats above other content
+    },
+    divider: {
+      height: theme.spacing(2),
+    },
+    label: {
+      left: "unset",
+      direction: "rtl",
+      transformOrigin: "top right",
+    }
+  }
+};
+
+// Custom components for react-select
 function NoOptionsMessage(props) {
   return (
     <Typography
       color="textSecondary"
-      className={props.selectProps.classes.noOptionsMessage}
+      sx={props.selectProps.classes.noOptionsMessage}
       {...props.innerProps}
     >
       אין אפשרויות
@@ -80,95 +93,101 @@ function NoOptionsMessage(props) {
   );
 }
 
-function inputComponent({ inputRef, ...props }) {
+const InputComponent = ({ inputRef, ...props }) => {
   return <div ref={inputRef} {...props} />;
 }
 
 function Control(props) {
+  const { selectProps, innerRef, children, innerProps } = props;
+
   return (
     <TextField
       fullWidth
+      multiline
       InputProps={{
-        inputComponent,
+        inputComponent: InputComponent,
         inputProps: {
-          className: props.selectProps.classes.input,
-          inputRef: props.innerRef,
-          children: props.children,
-          ...props.innerProps,
+          sx: selectProps.classes.input,
+          inputRef: innerRef,
+          children,
+          ...innerProps,
         },
       }}
-      classes={{
-        root: props.selectProps.classes.formControl
-      }}
-      {...props.selectProps.textFieldProps}
+      sx={selectProps.classes.formControl}
+      {...selectProps.textFieldProps}
     />
   );
 }
 
 function Option(props) {
+  const { innerRef, isFocused, isSelected, innerProps, children } = props;
+
   return (
     <MenuItem
-      buttonRef={props.innerRef}
-      selected={props.isFocused}
+      ref={innerRef} // Correctly using the ref prop
+      selected={isFocused}
       component="div"
       style={{
-        fontWeight: props.isSelected ? 500 : 400,
+        fontWeight: isSelected ? 500 : 400,
       }}
-      {...props.innerProps}
+      {...innerProps}
     >
-      {props.children}
+      {children}
     </MenuItem>
   );
 }
 
-function Placeholder(props) {
+function Placeholder (props) {
   return (
     <Typography
       color="textSecondary"
-      className={props.selectProps.classes.placeholder}
+      sx={props.selectProps.classes.placeholder}
       {...props.innerProps}
     >
       {props.children}
     </Typography>
-  );
-}
+  )
+};
 
-function SingleValue(props) {
+function SingleValue (props) {
   return (
-    <Typography className={props.selectProps.classes.singleValue} {...props.innerProps}>
+    <Typography
+      sx={props.selectProps.classes.singleValue}
+      {...props.innerProps}
+    >
       {props.children}
     </Typography>
-  );
-}
+  )
+};
 
 function ValueContainer(props) {
-  return <div className={props.selectProps.classes.valueContainer}>{props.children}</div>;
+  return <Box sx={props.selectProps.classes.valueContainer}>{props.children}</Box>;
 }
 
 function MultiValue({data, selectProps, removeProps, isFocused}) {
-  // const item = selectProps.options.find(item => selectProps.getOptionValue(item)===data)
-  // const label = selectProps.getOptionLabel(item)
   return (
     <Chip
       tabIndex={-1}
       label={selectProps.getOptionLabel(data)}
-      className={classNames(selectProps.classes.chip, {
-        [selectProps.classes.chipFocused]: isFocused,
-      })}
+      sx={{
+        ...selectProps.classes.chip,
+        ...(isFocused ? selectProps.classes.chipFocused : {}),
+      }}
       onDelete={removeProps.onClick}
-      deleteIcon={<CancelIcon className={selectProps.classes.deleteIcon} {...removeProps} />}
+      deleteIcon={<CancelIcon sx={selectProps.classes.deleteIcon} {...removeProps} />}
     />
   );
 }
 
 function Menu(props) {
   return (
-    <Paper square className={props.selectProps.classes.paper} {...props.innerProps}>
+    <Paper square sx={props.selectProps.classes.paper} {...props.innerProps}>
       {props.children}
     </Paper>
   );
 }
 
+// Components mapping
 const components = {
   Control,
   Menu,
@@ -180,23 +199,29 @@ const components = {
   ValueContainer,
 }
 
-class MultipleSelection extends React.Component {
+const MultipleSelection = (props) => {
+    const classes = useStyles()
 
-  static defaultProps = {
-    keyField: '_id'
-  }
-
-  render() {
-
-    const {label, single, disabled, value, onChange, data, displayField, classes, keyField, theme} = this.props
+    const {label, single, disabled, value, onChange, data, displayField, keyField = '_id', theme} = props
 
     const selectStyles = {
-      input: base => ({
+      input: (base) => ({
         ...base,
-        color: theme.palette.text.primary,
-        '& input': {
-          font: 'inherit',
+        // color: theme.palette.text.primary,
+        "& input": {
+          font: "inherit",
         },
+      }),
+      menuPortal: (base) => ({
+        ...base,
+        zIndex: 9999,
+      }),
+      menu: (base) => ({
+        ...base,
+        zIndex: 9999, // Ensure the menu itself has a high z-index
+      }),
+      indicatorSeparator: (base) => ({
+        display: 'none', // Hides the separator
       }),
     };
 
@@ -220,9 +245,9 @@ class MultipleSelection extends React.Component {
         isMulti={!single}
         isDisabled={disabled}
         placeholder={`בחר ${label}`}
+        menuPortalTarget={document.body}
       />
     )
-  }
-}
+};
 
-export default withStyles(styles, { withTheme: true })(MultipleSelection)
+export default MultipleSelection;

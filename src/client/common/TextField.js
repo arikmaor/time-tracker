@@ -1,10 +1,10 @@
 import React from 'react'
-import TextField from '@material-ui/core/TextField';
-import withStyles from '@material-ui/core/styles/withStyles';
+import TextField from '@mui/material/TextField';
+import withStyles from '@mui/styles/withStyles';
 
 const styles = theme => ({
   textField: {
-    padding: theme.spacing.unit * 2,
+    padding: theme.spacing(2),
   },
   label: {
     left: 'unset',

@@ -1,63 +1,73 @@
-import React from 'react'
-import {get} from 'lodash'
-import {withRouter} from 'react-router-dom'
-import {Snackbar, withStyles} from '@material-ui/core'
-import apiClient from 'core/apiClient'
-import {signOut} from 'core/authService'
+import React from "react";
+import { get } from "lodash";
+import { Snackbar } from "@mui/material";
+import { styled } from "@mui/material/styles";
+import { useNavigate } from "react-router-dom";
+import apiClient from "core/apiClient";
+import { signOut } from "core/authService";
 
-const styles = theme => ({
-  error: {
-    marginTop: theme.spacing.unit,
-    backgroundColor: theme.palette.error.dark
-  }
-})
+// Use styled API for consistent theming
+const StyledSnackbar = styled(Snackbar)(({ theme }) => ({
+  "& .MuiSnackbarContent-root": {
+    marginTop: theme.spacing(1), // Use theme.spacing safely
+    backgroundColor: theme.palette.error.dark,
+  },
+}));
 
 class ErrorDisplay extends React.Component {
-
   state = {
-    errorMessage: null
-  }
+    errorMessage: null,
+  };
 
   constructor(props) {
-    super(props)
-    apiClient.interceptors.response.use(null, error => {
-      if (error.response.status === 401) {
-        signOut()
-        this.props.history.push('/login')
-      } else {
-        this.setState({
-          errorMessage: get(error, 'response.data.error', 'unknown server error')
-        })
+    super(props);
+    const { navigate } = props;
+    apiClient.interceptors.response.use(
+      null,
+      (error) => {
+        if (error.response.status === 401) {
+          signOut();
+          navigate("/login");
+        } else {
+          this.setState({
+            errorMessage: get(
+              error,
+              "response.data.error",
+              "unknown server error"
+            ),
+          });
+        }
+        return Promise.reject(error);
       }
-      return Promise.reject(error)
-    })
-
+    );
   }
 
-  handleClose() {
-    this.setState({errorMessage: null})
-  }
+  handleClose = () => {
+    this.setState({ errorMessage: null });
+  };
 
   render() {
-    const {classes} = this.props
-    const {errorMessage} = this.state
+    const { errorMessage } = this.state;
 
     return (
-      <Snackbar
+      <StyledSnackbar
         anchorOrigin={{
-          vertical: 'top',
-          horizontal: 'center',
+          vertical: "top",
+          horizontal: "center",
         }}
         open={!!errorMessage}
         autoHideDuration={2000}
         onClose={this.handleClose}
         message={errorMessage}
-        ContentProps={{
-          className: classes.error
-        }}
       />
-    )
+    );
   }
 }
 
-export default withStyles(styles)(withRouter(ErrorDisplay))
+// Wrapper to inject `navigate` into props
+const withNavigate = (Component) => (props) => {
+  const navigate = useNavigate();
+  return <Component {...props} navigate={navigate} />;
+};
+
+export default withNavigate(ErrorDisplay);

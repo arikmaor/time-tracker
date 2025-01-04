@@ -1,53 +1,53 @@
 import React from 'react';
-import {without} from 'lodash';
+import { without } from 'lodash';
 import PropTypes from 'prop-types';
 
-import withStyles from '@material-ui/core/styles/withStyles';
-import Paper from '@material-ui/core/Paper';
-import Button from '@material-ui/core/Button';
-import AddIcon from '@material-ui/icons/Add'
+import { withStyles } from '@mui/styles';
+import Paper from '@mui/material/Paper';
+import Button from '@mui/material/Button';
+import AddIcon from '@mui/icons-material/Add';
 
-import ActivityIndicator from 'common/ActivityIndicator'
-import EditableTable from 'common/EditableTable'
+import ActivityIndicator from 'common/ActivityIndicator';
+import EditableTable from 'common/EditableTable';
 
-import * as activitiesService from 'core/activitiesService'
+import * as activitiesService from 'core/activitiesService';
 
 
 const NEW_PREFIX = 'new_'
 
-const styles = theme => ({
+const styles = (theme) => ({
   root: {
     width: '100%',
-    marginTop: theme.spacing.unit * 3,
+    marginTop: theme.spacing(3), // Updated spacing API
     overflowX: 'auto',
   },
   table: {
-    minWidth: 700
+    minWidth: 700,
   },
   bigCell: {
     fontSize: '1.25rem',
     textAlign: 'right',
-    padding: theme.spacing.unit * 1.5,
-    width: '50%'
+    padding: theme.spacing(1.5), // Updated spacing API
+    width: '50%',
   },
   smallCell: {
     fontSize: '1.25rem',
     textAlign: 'right',
-    padding: theme.spacing.unit * 1.5,
-    whiteSpace: 'nowrap'
+    padding: theme.spacing(1.5), // Updated spacing API
+    whiteSpace: 'nowrap',
   },
   input: {
     fontSize: '1.25rem',
   },
   fullWidth: {
-    width: '100%'
+    width: '100%',
   },
   monthSelection: {
-    marginTop: theme.spacing.unit * 1.5
+    marginTop: theme.spacing(1.5), // Updated spacing API
   },
   newIcon: {
-    marginLeft: theme.spacing.unit
-  }
+    marginLeft: theme.spacing(1), // Updated spacing API
+  },
 });
 
 let dummyIdCouter = 0
